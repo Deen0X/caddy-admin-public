@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Usuarios · {{ app_name }}{% endblock %}
+{% block page_title %}Usuarios{% endblock %}
+{% block page_sub %}Cuentas de la consola: administradores o usuarios de directorio{% endblock %}
+
+{% macro user_avatar(u) -%}
+<span class="user-av">
+  {%- if u.avatar and (u.avatar.startswith('http://') or u.avatar.startswith('https://')) -%}
+    <img src="{{ u.avatar }}" alt="">
+  {%- else -%}
+    {{ u.avatar or '👤' }}
+  {%- endif -%}
+</span>
+{%- endmacro %}
+
+{% block content %}
+
+{% if is_admin %}
+<div class="card">
+  <div class="card-h"><h2>Nuevo usuario</h2><div class="grow"></div><span class="badge info">consola</span></div>
+  <form method="post" action="/usuarios/new">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="row">
+      <div class="field" style="flex:2 1 180px">
+        <span>Usuario</span>
+        <input name="username" type="text" required placeholder="operador">
+      </div>
+      <div class="field" style="flex:2 1 180px">
+        <span>Contraseña (mínimo {{ min_password }})</span>
+        <input name="password" type="password" required autocomplete="new-password">
+      </div>
+      <div class="field" style="flex:1 1 130px">
+        <span>Rol</span>
+        <select name="role">
+          <option value="user">Usuario (directorio)</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1 1 130px">
+        <span>Avatar</span>
+        <input name="avatar" type="text" placeholder="👤 / URL">
+      </div>
+      <button class="btn" type="submit" style="margin-bottom:1px">Crear</button>
+    </div>
+  </form>
+</div>
+{% else %}
+<div class="alert info">Solo un administrador puede gestionar usuarios.</div>
+{% endif %}
+
+<div class="card" style="margin-top:14px">
+  <div class="card-h"><h2>Cuentas</h2><div class="grow"></div><span class="badge info">{{ users|length }}</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+      <tr>
+        <th>Usuario</th>
+        <th class="col-hide">Último acceso</th>
+        <th>Rol</th>
+        <th class="col-hide">Avatar</th>
+        <th>Activo</th>
+        <th class="col-hide">Nueva contraseña</th>
+        <th></th>
+      </tr>
+      </thead>
+      <tbody>
+      {% for u in users %}
+      <tr>
+        <td>
+          <div class="user-card">
+            {{ user_avatar(u) }}
+            <div class="user-meta">
+              <b>{{ u.username }}{% if u.id == user.user_id %} <span class="badge info">tú</span>{% endif %}</b>
+              <span>creado {{ u.created_at[:10] }}</span>
+            </div>
+          </div>
+        </td>
+        <td class="col-hide small muted">{{ u.last_login_at[:16]|replace('T',' ') if u.last_login_at else '—' }}</td>
+        <td>
+          <select name="role" form="uf-{{ u.id }}" {% if not is_admin %}disabled{% endif %} style="min-width:120px">
+            <option value="user" {% if u.role == 'user' %}selected{% endif %}>Usuario</option>
+            <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Administrador</option>
+          </select>
+        </td>
+        <td class="col-hide">
+          <input name="avatar" form="uf-{{ u.id }}" value="{{ u.avatar }}" {% if not is_admin %}disabled{% endif %} style="min-width:90px" placeholder="👤 / URL">
+        </td>
+        <td>
+          <div class="switch">
+            <input type="checkbox" id="act-{{ u.id }}" name="active" value="true" form="uf-{{ u.id }}"
+                   {% if u.active %}checked{% endif %} {% if not is_admin %}disabled{% endif %}>
+            <label for="act-{{ u.id }}"></label>
+          </div>
+        </td>
+        <td class="col-hide">
+          <input name="password" type="password" form="uf-{{ u.id }}" autocomplete="new-password"
+                 {% if not is_admin %}disabled{% endif %} style="min-width:120px" placeholder="(sin cambios)">
+        </td>
+        <td class="actions">
+          {% if is_admin %}
+          <button class="btn ghost sm" type="submit" form="uf-{{ u.id }}">Guardar</button>
+          {% if u.id != user.user_id %}
+          <form method="post" action="/usuarios/{{ u.id }}/delete" data-confirm="¿Eliminar al usuario {{ u.username }}?" style="margin-left:6px">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <button class="btn danger sm" type="submit">Eliminar</button>
+          </form>
+          {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% for u in users %}
+  <form id="uf-{{ u.id }}" method="post" action="/usuarios/{{ u.id }}/edit">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+  </form>
+  {% endfor %}
+  {% if is_admin %}
+  <div class="hint small-gap">No se puede eliminar el último administrador activo ni tu propia cuenta.</div>
+  {% endif %}
+</div>
+
+{% if is_admin and locked_users %}
+<div class="card" style="margin-top:14px">
+  <div class="card-h"><h2>Intentos de login bloqueados</h2><div class="grow"></div><span class="badge warn">{{ locked_users|length }}</span></div>
+  <div class="admin-list">
+    {% for u in locked_users %}
+    <div class="admin-row">
+      {{ user_avatar(u) }}
+      <div class="grow">
+        <b>{{ u.username }}</b>
+        <div class="muted small">Espera {{ (lockouts[u.id] // 60) + 1 }} min por intentos fallidos</div>
+      </div>
+      <form method="post" action="/usuarios/{{ u.id }}/reset-login">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn ghost sm" type="submit">Resetear espera</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="hint small-gap">Al resetear, la cuenta podrá volver a intentar el login desde cualquier IP.</div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Directorio · {{ app_name }}{% endblock %}
+{% block page_title %}Directorio{% endblock %}
+{% block page_sub %}{% if preview %}Vista de {{ preview_user }}{% elif is_admin %}Todos los elementos{% else %}Tus servicios{% endif %}{% endblock %}
+{% block content %}
+
+{% macro sort_link(field, label) -%}
+<a href="/directorio?sort={{ field }}&order={% if sort == field and order == 'asc' %}desc{% else %}asc{% endif %}&view={{ view }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if preview %}&as_user={{ as_user }}{% endif %}">{{ label }}{% if sort == field %}<span class="arrow">{% if order == 'asc' %}▲{% else %}▼{% endif %}</span>{% endif %}</a>
+{%- endmacro %}
+
+{% if preview %}
+<div class="alert info">
+  Estás viendo el directorio de <b>{{ preview_user }}</b>.
+  <a href="/directorio">Volver a mi vista</a>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="dir-toolbar">
+    <form class="search" method="get" action="/directorio">
+      <input type="hidden" name="view" value="{{ view }}">
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <input type="hidden" name="order" value="{{ order }}">
+      {% if preview %}<input type="hidden" name="as_user" value="{{ as_user }}">{% endif %}
+      <input type="search" name="q" value="{{ q }}" placeholder="Buscar servicio…">
+      <button class="btn ghost sm" type="submit">Buscar</button>
+      {% if q %}
+      <a class="btn ghost sm" href="/directorio?view={{ view }}&sort={{ sort }}&order={{ order }}{% if preview %}&as_user={{ as_user }}{% endif %}">Limpiar</a>
+      {% endif %}
+    </form>
+    <div class="grow"></div>
+    <div class="pill-row">
+      <a class="btn ghost sm {% if view == 'list' %}primary{% endif %}"
+         href="/directorio?view=list&sort={{ sort }}&order={{ order }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if preview %}&as_user={{ as_user }}{% endif %}">Lista</a>
+      <a class="btn ghost sm {% if view == 'icons' %}primary{% endif %}"
+         href="/directorio?view=icons&sort={{ sort }}&order={{ order }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if preview %}&as_user={{ as_user }}{% endif %}">Iconos</a>
+      <span class="badge info">{{ items|length }}</span>
+    </div>
+  </div>
+
+  {% if not items %}
+  <div class="dir-empty">
+    {% if q %}No hay servicios que coincidan con «{{ q }}».{% else %}No tienes servicios asignados. Contacta con el administrador.{% endif %}
+  </div>
+  {% elif view == 'icons' %}
+  <div class="dir-grid">
+    {% for item in items %}
+      {% if item.available %}
+      <a class="dir-card" href="{{ item.url }}" target="_blank" rel="noopener noreferrer">
+      {% else %}
+      <div class="dir-card dir-off">
+      {% endif %}
+        <img src="/api/favicon/{{ item.id }}?v={{ favicon_version }}" alt="" width="56" height="56" loading="lazy"
+             onerror="this.onerror=null;this.src='/static/logo.png';">
+        <b>{{ item.name }}</b>
+        <span class="muted small">{{ item.description or '—' }}</span>
+        {% if item.available %}<span class="badge ok">Activa</span>{% else %}<span class="badge warn">No disponible</span>{% endif %}
+      {% if item.available %}</a>{% else %}</div>{% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="dir-list">
+    <div class="dir-head">
+      <span class="dir-fav"></span>
+      <span class="dir-name">{{ sort_link('name', 'Nombre') }}</span>
+      {% if 'url' in columns %}<span class="dir-url">{{ sort_link('url', 'URL') }}</span>{% endif %}
+      {% if 'auth' in columns %}<span class="dir-auth">{{ sort_link('auth', 'Auth') }}</span>{% endif %}
+      {% if 'status' in columns %}<span class="dir-status">{{ sort_link('status', 'Estado') }}</span>{% endif %}
+      {% if 'description' in columns %}<span class="dir-desc">{{ sort_link('description', 'Descripción') }}</span>{% endif %}
+    </div>
+    {% for item in items %}
+      {% if item.available %}
+      <a class="dir-row" href="{{ item.url }}" target="_blank" rel="noopener noreferrer">
+      {% else %}
+      <div class="dir-row dir-off">
+      {% endif %}
+        <span class="dir-fav">
+          <img src="/api/favicon/{{ item.id }}?v={{ favicon_version }}" alt="" width="28" height="28" loading="lazy"
+               onerror="this.onerror=null;this.src='/static/logo.png';">
+        </span>
+        <span class="dir-name">
+          <b>{{ item.name }}</b><br>
+          <span class="muted small mono">{{ item.id }}</span>
+          {% if not item.available and 'status' not in columns %}<span class="badge warn">No disponible</span>{% endif %}
+        </span>
+        {% if 'url' in columns %}
+        <span class="dir-url">
+          {% if item.url %}<span class="code">{{ item.url|replace('https://', '') }}</span>{% else %}<span class="muted small">sin dominio</span>{% endif %}
+        </span>
+        {% endif %}
+        {% if 'auth' in columns %}
+        <span class="dir-auth">
+          {% if item.auth == 'authelia' %}<span class="badge info">Authelia</span>{% else %}<span class="badge warn">Sin auth</span>{% endif %}
+        </span>
+        {% endif %}
+        {% if 'status' in columns %}
+        <span class="dir-status">
+          {% if item.available %}<span class="badge ok">Activa</span>{% else %}<span class="badge warn">No disponible</span>{% endif %}
+        </span>
+        {% endif %}
+        {% if 'description' in columns %}
+        <span class="dir-desc">{{ item.description or '—' }}</span>
+        {% endif %}
+      {% if item.available %}</a>{% else %}</div>{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="hint small-gap">Haz clic en un servicio para abrirlo en una pestaña nueva.</div>
+{% endblock %}

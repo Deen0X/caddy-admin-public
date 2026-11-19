@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}{{ "Nueva ruta" if is_new else "Editar ruta" }} · {{ app_name }}{% endblock %}
+{% block page_title %}{{ "Nueva ruta" if is_new else "Editar ruta" }}{% endblock %}
+{% block page_sub %}{{ "Publica un servicio interno" if is_new else route.id }}{% endblock %}
+{% block content %}
+
+{% if not base_domain %}
+<div class="alert err">
+  Falta el dominio base. Las rutas no se pueden aplicar hasta configurarlo.
+  <a href="/setup-stack">Configurar dominio</a>
+</div>
+{% endif %}
+
+<div class="card" style="max-width:860px">
+  <div class="card-h">
+    <h2>Configuración</h2>
+    <div class="grow"></div>
+    <a class="btn ghost sm" href="/">Volver</a>
+  </div>
+
+  <form method="post" action="{{ '/new' if is_new else '/' ~ route.id ~ '/edit' }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+
+    <div class="form-grid">
+      <div class="field">
+        <span>Nombre</span>
+        <input name="name" type="text" maxlength="60" required value="{{ route.name }}" placeholder="TCloud">
+      </div>
+      <div class="field">
+        <span>Tipo de acceso</span>
+        <select name="mode" id="mode-select">
+          <option value="port" {% if route.get('mode', 'port') == 'port' %}selected{% endif %}>Puerto (dominio:81xx)</option>
+          <option value="subdomain" {% if route.get('mode') == 'subdomain' %}selected{% endif %}>Subdominio (app.dominio)</option>
+          <option value="path" {% if route.get('mode') == 'path' %}selected{% endif %} {% if not allow_path %}disabled{% endif %}>Path (dominio/app){% if not allow_path %} — solo standalone{% endif %}</option>
+        </select>
+      </div>
+
+      <div class="field" id="field-port">
+        <span>Puerto público ({{ port_min }}–{{ port_max }})</span>
+        <input id="port-input" name="port" type="number" min="{{ port_min }}" max="{{ port_max }}"
+               value="{{ route.port }}" list="free-ports">
+        <datalist id="free-ports">
+          {% for p in free_ports %}<option value="{{ p }}"></option>{% endfor %}
+        </datalist>
+        <div class="port-status"><span class="dot" id="port-led"></span><span id="port-msg">Elige un puerto libre</span></div>
+        <div class="hint small-gap">Puedes compartir un puerto: cada ruta debe usar un destino con una ruta base distinta.</div>
+      </div>
+      <div class="field" id="field-host" style="display:none">
+        <span>Subdominio</span>
+        <input name="host" type="text" value="{{ route.get('host', '') }}" placeholder="tcloud">
+        <div class="hint">URL final: <span id="preview-host">https://tcloud.{{ base_domain or 'dominio' }}</span></div>
+      </div>
+      <div class="field" id="field-path" style="display:none">
+        <span>Path</span>
+        <input name="path" type="text" value="{{ route.get('path', '') }}" placeholder="/tcloud">
+        <div class="hint">La app debe soportar base path. URL: <span id="preview-path">https://{{ base_domain or 'dominio' }}/tcloud</span></div>
+      </div>
+
+      <div class="field" style="grid-column: 1 / -1">
+        <span>Destino interno (host:puerto o host:puerto/ruta)</span>
+        <input name="target" type="text" required value="{{ route.target }}" placeholder="192.168.1.10:8080 o 192.168.1.10:8080/app">
+        <div class="hint">Sin http://. Si el servicio vive en una ruta del mismo puerto, añádela: <span class="mono">192.168.1.10:8080/app</span>.</div>
+      </div>
+
+      <div class="field" style="grid-column: 1 / -1">
+        <span>Descripción (para el directorio)</span>
+        <input name="description" type="text" maxlength="200" value="{{ route.get('description', '') }}" placeholder="Cámaras del jardín">
+        <div class="hint">Si se deja vacía, se intenta obtener de la web del servicio.</div>
+      </div>
+
+      <div class="field" style="grid-column: 1 / -1">
+        <span>Favicon (URL opcional)</span>
+        <input name="favicon" type="url" maxlength="500" value="{{ route.get('favicon', '') }}" placeholder="https://…/icono.png">
+        <div class="hint">Si se indica, se usa en el panel y el directorio en lugar del favicon del servicio.</div>
+      </div>
+
+      <div class="field">
+        <span>Autenticación</span>
+        <select name="auth">
+          <option value="none" {% if route.auth == 'none' or not sso.sso %}selected{% endif %}>Sin autenticación</option>
+          <option value="authelia" {% if route.auth == 'authelia' and sso.sso %}selected{% endif %} {% if not sso.sso %}disabled{% endif %}>Authelia{% if not sso.sso %} — SSO no detectado{% endif %}</option>
+        </select>
+      </div>
+      <div class="field">
+        <span>Esquema del backend</span>
+        <select name="scheme" id="scheme-select">
+          <option value="http" {% if route.get("scheme", "http") == "http" %}selected{% endif %}>HTTP</option>
+          <option value="https" {% if route.get("scheme", "http") == "https" %}selected{% endif %}>HTTPS</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="pill-row" style="margin-top:16px">
+      <div class="switch">
+        <input type="checkbox" id="sse" name="sse" value="true" {% if route.sse %}checked{% endif %}>
+        <label for="sse"></label><span class="switch-text">SSE / streaming sin buffering</span>
+      </div>
+      <div class="switch" id="skip-wrap">
+        <input type="checkbox" id="skip" name="skip_verify" value="true" {% if route.get("skip_verify", False) and route.get("scheme", "http") == "https" %}checked{% endif %}>
+        <label for="skip"></label><span class="switch-text">Aceptar certificado autofirmado (solo HTTPS)</span>
+      </div>
+      <div class="switch">
+        <input type="checkbox" id="enabled" name="enabled" value="true" {% if route.enabled %}checked{% endif %}>
+        <label for="enabled"></label><span class="switch-text">Ruta activa</span>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn" type="submit">Validar y aplicar</button>
+      <a class="btn ghost" href="/">Cancelar</a>
+    </div>
+  </form>
+
+  {% if not is_new %}
+  <form method="post" action="/{{ route.id }}/delete" style="margin-top:18px"
+        data-confirm="¿Eliminar la ruta {{ route.name }}?">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn danger" type="submit">Eliminar ruta</button>
+  </form>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  var select = document.getElementById('mode-select');
+  if (!select) return;
+  var blocks = {
+    port: document.getElementById('field-port'),
+    subdomain: document.getElementById('field-host'),
+    path: document.getElementById('field-path')
+  };
+  function refresh() {
+    Object.keys(blocks).forEach(function (mode) {
+      if (!blocks[mode]) return;
+      blocks[mode].style.display = (mode === select.value) ? '' : 'none';
+    });
+  }
+  select.addEventListener('change', refresh);
+  refresh();
+
+  // "Aceptar certificado autofirmado" solo tiene sentido con HTTPS.
+  var scheme = document.getElementById('scheme-select');
+  var skip = document.getElementById('skip');
+  var skipWrap = document.getElementById('skip-wrap');
+  function refreshSkip() {
+    var isHttps = scheme && scheme.value === 'https';
+    if (skip) {
+      skip.disabled = !isHttps;
+      if (!isHttps) skip.checked = false;
+    }
+    if (skipWrap) skipWrap.style.opacity = isHttps ? '1' : '.5';
+  }
+  if (scheme) {
+    scheme.addEventListener('change', refreshSkip);
+    refreshSkip();
+  }
+
+  // Indicador de puerto libre/ocupado.
+  var portInput = document.getElementById('port-input');
+  var portLed = document.getElementById('port-led');
+  var portMsg = document.getElementById('port-msg');
+  var freePorts = {{ free_ports|tojson }};
+  var freeSet = new Set(freePorts);
+  var usedPorts = {{ used_ports|tojson }};
+  var usedSet = new Set(usedPorts);
+  var portMin = {{ port_min }};
+  var portMax = {{ port_max }};
+  function refreshPort() {
+    if (!portInput || !portLed || !portMsg) return;
+    var value = parseInt(portInput.value, 10);
+    if (!value) {
+      portLed.className = 'dot';
+      portMsg.textContent = 'Elige un puerto libre';
+      return;
+    }
+    if (value < portMin || value > portMax) {
+      portLed.className = 'dot err';
+      portMsg.textContent = 'Fuera de rango';
+      return;
+    }
+    if (freeSet.has(value)) {
+      portLed.className = 'dot ok';
+      portMsg.textContent = 'Puerto libre';
+    } else if (usedSet.has(value)) {
+      portLed.className = 'dot warn';
+      portMsg.textContent = 'Puerto en uso (se puede compartir con otra ruta base)';
+    } else {
+      portLed.className = 'dot err';
+      portMsg.textContent = 'Puerto ocupado';
+    }
+  }
+  if (portInput) {
+    portInput.addEventListener('input', refreshPort);
+    refreshPort();
+  }
+})();
+</script>
+{% endblock %}

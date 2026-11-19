@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Diagnóstico · {{ app_name }}{% endblock %}
+{% block page_title %}Diagnóstico{% endblock %}
+{% block page_sub %}{% if is_admin %}Validación de Caddy, conectividad de destinos y certificado{% else %}Estado de tus servicios{% endif %}{% endblock %}
+{% block content %}
+
+{% if is_admin %}
+<div class="grid g4">
+  <div class="stat">
+    <div class="k">Caddyfile</div>
+    <div class="v">{% if validation_ok %}<span class="badge ok">válido</span>{% else %}<span class="badge err">error</span>{% endif %}</div>
+    <div class="s mono">{{ caddy_version }}</div>
+  </div>
+  <div class="stat">
+    <div class="k">Certificado</div>
+    <div class="v">{% if cert.ok %}{{ cert.days }} d{% else %}<span class="badge err">—</span>{% endif %}</div>
+    <div class="s">{{ cert.not_after or cert.error }}</div>
+  </div>
+  <div class="stat">
+    <div class="k">Disco libre</div>
+    <div class="v">{{ (disk.free / 1073741824)|round(1) }} GB</div>
+    <div class="s">de {{ (disk.total / 1073741824)|round(1) }} GB</div>
+  </div>
+  <div class="stat">
+    <div class="k">Escritura /caddy</div>
+    <div class="v">{% if writable %}<span class="badge ok">ok</span>{% else %}<span class="badge err">fallo</span>{% endif %}</div>
+    <div class="s">permisos de rutas</div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <div class="card-h"><h2>Validación del Caddyfile</h2><div class="grow"></div>
+    <span class="badge {% if validation_ok %}ok{% else %}err{% endif %}">{% if validation_ok %}sin errores{% else %}revisar{% endif %}</span>
+  </div>
+  <pre class="log">{{ validation_output or 'Caddy no devolvió detalle.' }}</pre>
+</div>
+{% endif %}
+
+<div class="card" style="margin-top:14px">
+  <div class="card-h"><h2>{% if is_admin %}Destinos de las rutas{% else %}Tus servicios{% endif %}</h2><div class="grow"></div>
+    <span class="badge info">{{ checks|length }}</span>
+  </div>
+  {% if checks %}
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th>Servicio</th>
+      {% if is_admin %}<th>Destino</th>{% else %}<th>URL pública</th>{% endif %}
+      <th>Estado</th>
+      <th class="col-hide">Latencia</th>
+    </tr></thead>
+    <tbody>
+    {% for item in checks %}
+    <tr>
+      <td>
+        <div class="route-name">
+          <img class="route-favicon" src="/api/favicon/{{ item.route.id }}?v={{ favicon_version }}" alt="" width="20" height="20"
+               loading="lazy" onerror="this.onerror=null;this.src='/static/logo.png';">
+          <div>
+            <b>{{ item.route.name }}</b>
+            <div class="muted small mono">{{ item.route.id }}</div>
+          </div>
+        </div>
+      </td>
+      {% if is_admin %}
+      <td class="mono">{{ item.route.target }}</td>
+      {% else %}
+      <td>
+        {% if item.url %}
+        <a class="code" href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.url|replace('https://', '') }}</a>
+        {% else %}
+        <span class="badge warn">sin dominio</span>
+        {% endif %}
+      </td>
+      {% endif %}
+      <td>{% if item.check.ok %}<span class="badge ok">responde</span>{% else %}<span class="badge err">no responde</span>{% endif %}</td>
+      <td class="col-hide small muted">{{ item.check.ms }} ms{% if not item.check.ok %} · {{ item.check.error }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <div class="empty">{% if is_admin %}No hay rutas con destino válido.{% else %}No tienes servicios asignados.{% endif %}</div>
+  {% endif %}
+</div>
+
+{% if is_admin %}
+<div class="card" style="margin-top:14px">
+  <div class="card-h"><h2>Métricas</h2><div class="grow"></div>
+    {% if metrics.available %}<span class="badge ok">disponibles</span>{% else %}<span class="badge err">no</span>{% endif %}
+  </div>
+  {% if metrics.available %}
+  <dl class="kv">
+    <dt>Peticiones HTTP</dt><dd>{{ metrics.requests }}</dd>
+    <dt>Admin API</dt><dd>{{ metrics.admin_requests }}</dd>
+    <dt>Errores</dt><dd>{{ metrics.errors }}</dd>
+  </dl>
+  {% else %}
+  <div class="hint">{{ metrics.error or 'Caddy no expone /metrics.' }}</div>
+  {% endif %}
+  <div class="hint small-gap">Uptime de la consola: {{ (uptime // 3600) }} h {{ ((uptime % 3600) // 60) }} min.</div>
+</div>
+{% endif %}
+{% endblock %}

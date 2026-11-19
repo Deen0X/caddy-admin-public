@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>{% block title %}Caddy Admin{% endblock %}</title>
+<link rel="icon" href="/favicon.ico?v={{ version }}" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v={{ version }}">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v={{ version }}">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png?v={{ version }}">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v={{ version }}">
+<link rel="stylesheet" href="/static/dnx-web-ui.css">
+<link rel="stylesheet" href="/static/app.css">
+<script>
+/* Anti-FOUC: aplica el tema antes del primer render. */
+(function () {
+  var t = localStorage.getItem('dnx_theme') || '{{ theme_default }}' || 'auto';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+</head>
+<body>
+{% macro user_avatar(u) -%}
+  {%- if u and u.avatar and (u.avatar.startswith('http://') or u.avatar.startswith('https://')) -%}
+    <span class="avatar has-img"><img src="{{ u.avatar }}" alt=""></span>
+  {%- elif u and u.avatar -%}
+    <span class="avatar">{{ u.avatar }}</span>
+  {%- else -%}
+    <span class="avatar">👤</span>
+  {%- endif -%}
+{%- endmacro %}
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <img class="logo" src="/static/logo.png" alt="">
+      <div><b>{{ app_name }}</b><div class="ver">consola · v{{ version }}</div></div>
+    </div>
+    <nav class="nav">
+      {% for key, label, icon, href in sections %}
+      <a href="{{ href }}" class="{% if section == key %}on{% endif %}"><span class="ico">{{ icon }}</span>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <div class="foot">
+      <div class="user-card">
+        {{ user_avatar(user) }}
+        <div class="user-meta">
+          <b>{{ user.username if user else '—' }}</b>
+          <span>{{ 'Administrador' if user and user.role == 'admin' else 'Usuario' }}</span>
+        </div>
+      </div>
+      <form method="post" action="/logout">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="user-logout" type="submit"><span class="ico">✕</span> Cerrar sesión</button>
+      </form>
+      <button class="theme-btn" id="theme-btn" type="button" aria-label="Cambiar tema">
+        <span class="ico" id="theme-ico">🌓</span><span class="lbl" id="theme-lbl">Auto</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <button class="menu-btn" id="menu-btn" type="button" aria-label="Abrir menú">
+        <img class="logo" src="/static/logo.png" alt=""><span class="hamb">☰</span>
+      </button>
+      <div class="grow">
+        <h1 id="title">{% block page_title %}{% endblock %}</h1>
+        <div class="sub" id="subtitle">{% block page_sub %}{% endblock %}</div>
+      </div>
+      <a class="badge live-badge" id="live" href="{{ '/estadisticas' if user and user.role == 'admin' else '/diagnostico' }}" title="Ver estado">
+        <span class="dot ok"></span><span>en vivo</span>
+      </a>
+    </div>
+
+    {% if ok %}<div class="alert ok">{{ ok }}</div>{% endif %}
+    {% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+    {% if managed and not base_domain and section != 'ajustes' %}
+    <div class="alert info">
+      Falta el dominio base. <a href="/setup-stack">Configúralo aquí</a> para poder publicar rutas.
+    </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<div id="drawer-overlay"></div>
+<div id="toast"></div>
+<div id="global-loading" role="status" aria-live="polite">
+  <div class="spinner" aria-hidden="true"></div>
+  <span>Cargando diagnóstico…</span>
+</div>
+<script src="/static/theme-drawer.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

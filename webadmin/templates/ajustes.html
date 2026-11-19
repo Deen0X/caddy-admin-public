@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Ajustes · {{ app_name }}{% endblock %}
+{% block page_title %}Ajustes{% endblock %}
+{% block page_sub %}Consola y lectura del estado de Caddy / Authelia{% endblock %}
+{% block content %}
+
+<div class="split">
+  <div class="card">
+    <div class="card-h"><h2>Consola</h2></div>
+    <form method="post" action="/ajustes">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <fieldset {% if user.role != 'admin' %}disabled{% endif %} style="border:0;padding:0;margin:0">
+        <div class="form-grid">
+          <div class="field">
+            <span>Nombre de la instancia</span>
+            <input name="instance_name" type="text" maxlength="40" required value="{{ settings.instance_name }}">
+          </div>
+          <div class="field">
+            <span>Tema por defecto</span>
+            <select name="theme_default">
+              <option value="auto" {% if settings.theme_default == 'auto' %}selected{% endif %}>Auto (sigue al SO)</option>
+              <option value="dark" {% if settings.theme_default == 'dark' %}selected{% endif %}>Oscuro</option>
+              <option value="light" {% if settings.theme_default == 'light' %}selected{% endif %}>Claro</option>
+            </select>
+          </div>
+          <div class="field">
+            <span>Duración de sesión (horas)</span>
+            <input name="session_hours" type="number" min="1" max="168" value="{{ settings.session_hours }}">
+          </div>
+          <div class="field">
+            <span>Muestreo de estadísticas (segundos)</span>
+            <input name="stats_interval" type="number" min="60" max="3600" value="{{ settings.stats_interval }}">
+          </div>
+          <div class="field">
+            <span>URL de Authelia</span>
+            <input name="authelia_url" type="text" value="{{ settings.authelia_url }}" placeholder="https://…:9091">
+          </div>
+          <div class="field">
+            <span>URL de LLDAP</span>
+            <input name="lldap_url" type="text" value="{{ settings.lldap_url }}" placeholder="https://…:17170">
+          </div>
+          <div class="field">
+            <span>URL de Portainer</span>
+            <input name="portainer_url" type="text" value="{{ settings.portainer_url }}" placeholder="https://…">
+          </div>
+          <div class="field">
+            <span>Dominio base</span>
+            <input name="base_domain" type="text" value="{{ base_domain }}" placeholder="micasa.duckdns.org" {% if not managed %}readonly{% endif %}>
+            <div class="hint">{% if managed %}Se regenera el Caddyfile y se recarga Caddy al guardar.{% else %}Detectado del Caddyfile (modo pack, solo lectura).{% endif %}</div>
+          </div>
+          <div class="field">
+            <span>Email ACME</span>
+            <input name="acme_email" type="text" value="{{ acme_email }}" placeholder="tu@email.com" {% if not managed %}readonly{% endif %}>
+          </div>
+          <div class="field">
+            <span>IP LAN del panel</span>
+            <input name="lan_ip" type="text" value="{{ lan_ip }}" placeholder="192.168.1.10" {% if not managed %}readonly{% endif %}>
+            <div class="hint">Acceso de respaldo al panel con certificado interno.</div>
+          </div>
+        </div>
+        {% if user.role == 'admin' %}
+        <div class="form-actions"><button class="btn" type="submit">Guardar ajustes</button></div>
+        {% endif %}
+      </fieldset>
+    </form>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-h"><h2>Estado de Caddy</h2><div class="grow"></div><span class="badge info">solo lectura</span></div>
+      <dl class="kv">
+        <dt>Versión</dt><dd class="mono">{{ caddy_version }}</dd>
+        <dt>Uptime de la consola</dt><dd>{{ (uptime // 3600) }} h {{ ((uptime % 3600) // 60) }} min</dd>
+        <dt>Certificado</dt>
+        <dd>
+          {% if cert.ok %}
+            <span class="badge {% if cert.days is not none and cert.days < 14 %}warn{% else %}ok{% endif %}">{{ cert.days }} días</span>
+            <span class="muted small">caduca {{ cert.not_after }}</span>
+          {% else %}
+            <span class="badge err">no disponible</span>
+          {% endif %}
+        </dd>
+        <dt>Emisor</dt><dd class="muted small">{{ cert.issuer or '—' }}</dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>Sitios del Caddyfile base</h2><div class="grow"></div><span class="badge info">{{ sites|length }}</span></div>
+      {% if sites %}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Host</th><th>Puerto</th></tr></thead>
+        <tbody>
+        {% for site in sites %}
+        <tr><td class="mono">{{ site.host }}</td><td><span class="code">{{ site.port }}</span></td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      {% else %}<div class="empty">No se pudo leer el Caddyfile.</div>{% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>Integraciones</h2><div class="grow"></div>
+        {% if sso.sso %}<span class="badge ok">SSO activo</span>{% else %}<span class="badge warn">sin SSO</span>{% endif %}
+      </div>
+      <dl class="kv">
+        <dt>Authelia</dt>
+        <dd>{% if sso.authelia %}<span class="badge ok">detectado</span>{% else %}<span class="muted">no detectado</span>{% endif %}</dd>
+        <dt>LLDAP</dt>
+        <dd>{% if sso.lldap %}<span class="badge ok">detectado</span>{% else %}<span class="muted">no detectado</span>{% endif %}</dd>
+        <dt>Última comprobación</dt>
+        <dd class="muted small">{{ (sso.checked_at or '—')[:19]|replace('T',' ') }}</dd>
+      </dl>
+      <div class="hint">Si instalas Authelia/LLDAP, la consola lo detecta sola y habilita la opción en las rutas. No se instala desde aquí.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>Authelia</h2><div class="grow"></div>
+        {% if authelia.available %}<span class="badge ok">config detectada</span>{% else %}<span class="badge warn">no montado</span>{% endif %}
+      </div>
+      {% if authelia.available %}
+      <dl class="kv">
+        <dt>Política por defecto</dt><dd><span class="code">{{ authelia.default_policy or '—' }}</span></dd>
+        <dt>Reglas</dt><dd>{{ authelia.rules }}</dd>
+      </dl>
+      <div class="hint">Los cambios de Authelia requieren reiniciar su contenedor; aquí solo se muestra en lectura.</div>
+      {% else %}
+      <div class="hint">Monta <span class="code">./authelia/configuration.yml</span> en <span class="code">/authelia/configuration.yml:ro</span> para ver su política.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

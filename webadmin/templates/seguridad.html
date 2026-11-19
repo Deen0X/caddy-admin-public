@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Seguridad · {{ app_name }}{% endblock %}
+{% block page_title %}Seguridad{% endblock %}
+{% block page_sub %}{% if user.role == 'admin' %}Tu cuenta y las sesiones activas{% else %}Tu cuenta{% endif %}{% endblock %}
+{% block content %}
+
+<div class="{% if user.role == 'admin' %}split{% endif %}">
+  <div class="card">
+    <div class="card-h"><h2>Cuenta</h2></div>
+
+    <div class="row" style="align-items:center;margin-bottom:16px">
+      <span class="avatar xl" id="avatar-preview">
+        {% if user.avatar and (user.avatar.startswith('http://') or user.avatar.startswith('https://')) %}
+          <img src="{{ user.avatar }}" alt="">
+        {% else %}
+          {{ user.avatar or '👤' }}
+        {% endif %}
+      </span>
+      <form method="post" action="/perfil/avatar" class="grow" style="display:flex;gap:8px;align-items:flex-end">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="field grow">
+          <span>Avatar (emoji o URL de imagen)</span>
+          <input id="avatar-input" name="avatar" type="text" value="{{ user.avatar }}" placeholder="🐧 o https://…">
+        </div>
+        <button class="btn ghost sm" type="submit">Aplicar</button>
+      </form>
+    </div>
+
+    <form method="post" action="/seguridad/cuenta">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="form-grid">
+        <div class="field">
+          <span>Usuario</span>
+          <input name="username" type="text" required value="{{ user.username }}">
+        </div>
+        <div class="field">
+          <span>Contraseña actual</span>
+          <input name="current_password" type="password" required autocomplete="current-password">
+        </div>
+        <div class="field">
+          <span>Nueva contraseña (opcional, mínimo {{ min_password }})</span>
+          <input name="new_password" type="password" autocomplete="new-password">
+        </div>
+        <div class="field">
+          <span>Repetir nueva contraseña</span>
+          <input name="confirm" type="password" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="form-actions"><button class="btn" type="submit">Actualizar cuenta</button></div>
+    </form>
+  </div>
+
+  {% if user.role == 'admin' %}
+  <div class="card">
+    <div class="card-h"><h2>Sesiones activas</h2><div class="grow"></div><span class="badge info">{{ sessions|length }}</span></div>
+    {% if sessions %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Inicio</th><th>Expira</th><th class="col-hide">IP</th><th class="col-hide">Navegador</th></tr></thead>
+      <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td class="small">{{ s.created_at[:16]|replace('T',' ') }}</td>
+        <td class="small">{{ s.expires_at[:16]|replace('T',' ') }}</td>
+        <td class="col-hide mono">{{ s.ip or '—' }}</td>
+        <td class="col-hide muted small">{{ (s.user_agent or '')[:48] }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <form method="post" action="/seguridad/sesiones" style="margin-top:12px"
+          data-confirm="Se cerrarán todas tus sesiones, incluida esta. ¿Continuar?">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn danger" type="submit">Cerrar todas las sesiones</button>
+    </form>
+    {% else %}
+    <div class="empty">No hay sesiones registradas.</div>
+    {% endif %}
+    <div class="hint small-gap">Al cambiar la contraseña se cierran las sesiones de otros dispositivos.</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

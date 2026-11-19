@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Configurar dominio · {{ app_name }}{% endblock %}
+{% block page_title %}Configurar dominio{% endblock %}
+{% block page_sub %}Genera el Caddyfile, los certificados y publica el panel{% endblock %}
+{% block content %}
+
+<div class="split">
+  <div class="card">
+    <div class="card-h"><h2>Dominio y TLS</h2><div class="grow"></div>
+      <span class="badge info">solo Caddy</span>
+    </div>
+
+    {% if not managed %}
+    <div class="alert warn">
+      Estás en modo pack: el Caddyfile lo gestiona el usuario y no se modifica desde aquí.
+      Cambia el dominio en tu Caddyfile y reinicia Caddy.
+    </div>
+    {% endif %}
+
+    <form method="post" action="/setup-stack">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="form-grid">
+        <div class="field" style="grid-column: 1 / -1">
+          <span>Dominio base</span>
+          <input name="base_domain" type="text" required value="{{ base_domain }}" placeholder="micasa.duckdns.org" {% if not managed %}readonly{% endif %}>
+          <div class="hint">Sin https:// ni barras. Debe resolver a este servidor.</div>
+        </div>
+        <div class="field">
+          <span>Email ACME (opcional)</span>
+          <input name="acme_email" type="text" value="{{ acme_email }}" placeholder="tu@email.com" {% if not managed %}readonly{% endif %}>
+          <div class="hint">Para avisos de Let's Encrypt.</div>
+        </div>
+        <div class="field">
+          <span>IP LAN del panel (opcional)</span>
+          <input name="lan_ip" type="text" value="{{ lan_ip }}" placeholder="192.168.1.10" {% if not managed %}readonly{% endif %}>
+          <div class="hint">Acceso de respaldo con certificado interno.</div>
+        </div>
+      </div>
+
+      {% if managed %}
+      <div class="form-actions">
+        <button class="btn" type="submit">Aplicar configuración</button>
+        <a class="btn ghost" href="/">Ahora no</a>
+      </div>
+      {% endif %}
+    </form>
+
+    <div class="alert info" style="margin-top:16px">
+      Al aplicar se escribe el Caddyfile, se validan las rutas y se recarga Caddy.
+      El panel quedará en <b>https://{{ base_domain or 'tu-dominio' }}:9095</b>.
+      Necesitas DNS apuntando aquí y los puertos 80/443 abiertos para el certificado.
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-h"><h2>Qué se va a generar</h2></div>
+      <dl class="kv">
+        <dt>Caddyfile</dt><dd class="mono">caddy/Caddyfile</dd>
+        <dt>Sitio raíz</dt><dd class="mono">{{ base_domain or 'dominio' }} (paths)</dd>
+        <dt>Panel</dt><dd class="mono">{{ base_domain or 'dominio' }}:9095</dd>
+        <dt>Panel LAN</dt><dd class="mono">{{ lan_ip or 'IP' }}:9095 (tls internal)</dd>
+        <dt>Rutas</dt><dd class="mono">caddy/routes/*.caddy</dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>Antes de aplicar</h2></div>
+      <ul class="muted small" style="margin:0;padding-left:18px;line-height:1.8">
+        <li>El dominio debe resolver a la IP pública de este servidor.</li>
+        <li>Los puertos 80 y 443 deben estar accesibles para ACME.</li>
+        <li>Si usas DuckDNS, el subdominio ya resuelve a tu IP.</li>
+        <li>El panel seguirá accesible por la IP LAN aunque el certificado tarde.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

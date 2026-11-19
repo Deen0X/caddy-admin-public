@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Update · {{ app_name }}{% endblock %}
+{% block page_title %}Update{% endblock %}
+{% block page_sub %}Actualizaciones de la consola desde GitHub{% endblock %}
+{% block content %}
+
+<div class="stack">
+  <div class="card">
+    <div class="card-h"><h2>Actualizaciones</h2><div class="grow"></div>
+      {% if update_status.update_available %}<span class="badge warn">commit {{ update_status.latest_commit or update_status.latest }} disponible</span>
+      {% elif update_status.detail %}<span class="badge warn" title="{{ update_status.detail }}">sin comprobar</span>
+      {% else %}<span class="badge ok">al día</span>{% endif %}
+    </div>
+
+    <div class="grid" style="grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 16px;">
+      <div class="stat">
+        <div class="k">Consola</div>
+        <div class="v mono">v{{ update_status.current }}</div>
+        <div class="s">commit: {{ update_status.current_commit or 'desconocido' }}</div>
+      </div>
+      <div class="stat">
+        <div class="k">GitHub · master</div>
+        <div class="v mono" style="font-size:15px">{{ update_status.latest_commit or update_status.latest or '—' }}</div>
+        <div class="s">
+          {% if update_status.latest_date %}{{ update_status.latest_date[:19]|replace('T',' ') }}{% elif update_status.latest %}v{{ update_status.latest }}{% else %}sin datos{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <form method="post" action="/update/settings">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="form-grid">
+        <div class="field">
+          <span>Auto-update diario</span>
+          <div class="switch">
+            <input type="checkbox" id="auto" name="auto" value="1" {% if update_auto %}checked{% endif %}>
+            <label for="auto"></label>
+            <span class="switch-text">Activar</span>
+          </div>
+          <div style="margin-top:8px">
+            <select name="hour" class="mono">
+              {% for h in range(24) %}<option value="{{ h }}" {% if update_hour|int == h %}selected{% endif %}>{{ '%02d'|format(h) }}:00</option>{% endfor %}
+            </select>
+            <span class="muted small">hora de comprobación</span>
+          </div>
+          <div class="hint">Comprueba GitHub una vez al día y aplica la actualización si hay una versión nueva.</div>
+        </div>
+        <div class="field">
+          <span>Token de actualización de GitHub</span>
+          <input name="token" type="password" autocomplete="off" maxlength="200" placeholder="{% if update_token_set %}•••••••• (configurado){% else %}pega aquí el token (solo repos privados){% endif %}">
+          <div class="switch" style="margin-top:8px">
+            <input type="checkbox" id="token_clear" name="token_clear" value="1">
+            <label for="token_clear"></label>
+            <span class="switch-text">Eliminar token guardado</span>
+          </div>
+          <div class="hint">Se usa para consultar releases y descargar el código si el repositorio es privado. Déjalo vacío para mantener el actual.</div>
+        </div>
+      </div>
+      <div class="form-actions"><button class="btn" type="submit">Guardar ajustes</button></div>
+    </form>
+
+    <div class="form-actions" style="justify-content:flex-start;gap:10px;margin-top:14px">
+      <button class="btn ghost" type="button" id="update-check-btn">Comprobar ahora</button>
+      <button class="btn" type="button" id="update-now" {% if not update_status.update_available %}disabled{% endif %}>Update now</button>
+    </div>
+    {% if update_status.detail %}
+    <div class="hint" style="color:var(--warn)">⚠ {{ update_status.detail }}</div>
+    {% endif %}
+    <div class="hint">{% if update_status.latest_message %}Último cambio: {{ update_status.latest_message }} · {% endif %}Comprobación: {{ (update_status.checked_at or '')[:19]|replace('T',' ') }}{% if update_auto %} · auto-update a las {{ '%02d'|format(update_hour|int) }}:00{% endif %}.</div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Actividad · {{ app_name }}{% endblock %}
+{% block page_title %}Actividad{% endblock %}
+{% block page_sub %}Registro de auditoría de la consola{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="card-h">
+    <h2>Filtros</h2>
+    <div class="grow"></div>
+    <span class="badge info">{{ entries|length }}</span>
+  </div>
+  <form class="search" method="get" action="/actividad">
+    <div class="field" style="flex:1 1 180px">
+      <span>Usuario</span>
+      <input name="user" type="text" value="{{ filter_user }}" placeholder="admin">
+    </div>
+    <div class="field" style="flex:1 1 180px">
+      <span>Acción</span>
+      <select name="action">
+        <option value="">Todas</option>
+        {% for a in ['apply','restore','login','setup','ajustes','seguridad','usuarios'] %}
+        <option value="{{ a }}" {% if filter_action == a %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn ghost" type="submit">Filtrar</button>
+    <a class="btn ghost" href="/actividad">Limpiar</a>
+  </form>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <div class="card-h"><h2>Eventos</h2></div>
+  {% if entries %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th class="col-hide">Detalle</th><th>Resultado</th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+    <tr>
+      <td class="mono small">{{ (e.ts or '')[:19]|replace('T',' ') }}</td>
+      <td>{{ e.user }}</td>
+      <td><span class="code">{{ e.action }}</span></td>
+      <td class="col-hide muted small">{{ e.detail or '—' }}</td>
+      <td>
+        {% if e.ok %}<span class="badge ok">ok</span>{% else %}<span class="badge err" title="{{ e.error }}">error</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <div class="empty">No hay eventos registrados.</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+# Ejemplo de Caddyfile para modo "pack" (el Caddyfile lo mantiene el usuario).
+# En modo standalone la consola lo genera automáticamente; no uses este fichero.
+#
+# Sustituye example.com por tu dominio y 192.0.2.10 por tu host interno.
+
+{
+	email {$ACME_EMAIL}
+	metrics
+	servers {
+		protocols h1 h2
+	}
+	admin :2019 {
+		origins http://caddy:2019 http://127.0.0.1:2019
+	}
+}
+
+# Fragmentos de rutas gestionadas por la consola (modo puerto/subdominio).
+import routes/*.caddy
+
+# Sitio raíz: rutas gestionadas por path.
+example.com {
+	encode zstd gzip
+	import routes/paths/*.caddy
+	handle {
+		redir https://example.com:9095/ 302
+	}
+}
+
+# Panel de administración.
+example.com:9095 {
+	encode zstd gzip
+	reverse_proxy caddy-admin:9095
+}
+
+# Acceso de respaldo por IP LAN con certificado interno (opcional).
+https://192.0.2.10:9095 {
+	tls internal
+	encode zstd gzip
+	reverse_proxy caddy-admin:9095
+}
+
+# Ejemplo de app protegida por Authelia (opcional; requiere Authelia).
+# app.example.com {
+# 	encode zstd gzip
+# 	forward_auth authelia:9091 {
+# 		uri /api/authz/forward-auth
+# 		copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+# 	}
+# 	reverse_proxy 192.0.2.10:8080
+# }

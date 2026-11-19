@@ -1,0 +1,45 @@
+# Backups locales de producción
+webadmin/prod_backup_*/
+webadmin/*.tar.gz
+webadmin/templates_prod/
+
+# Backups de rutas Caddy (generados en runtime)
+caddy/backups/
+caddy/routes.bak-*/
+caddy/admin-audit.log
+
+# Datos de despliegue/producción: NO se publican
+caddy/Caddyfile
+caddy/routes.json
+caddy/routes/
+compose/
+
+# Contexto Antigravity (gestión de sesión IA)
+.antigravity/
+
+# Configuración local sensible
+.tcloud.env
+.env
+*.local
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Build / dist
+dist/
+build/
+*.egg-info/
+
+# Paquetes de estilo
+dnx-web-ui-style.zip

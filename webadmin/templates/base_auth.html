@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>{% block title %}Acceso{% endblock %} · {{ app_name }}</title>
+<link rel="icon" href="/favicon.ico?v={{ version }}" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v={{ version }}">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v={{ version }}">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png?v={{ version }}">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v={{ version }}">
+<link rel="stylesheet" href="/static/dnx-web-ui.css">
+<link rel="stylesheet" href="/static/app.css">
+<script>
+(function () {
+  var t = localStorage.getItem('dnx_theme') || '{{ theme_default }}' || 'auto';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login">
+    <div class="brand">
+      <img class="logo" src="/static/logo.png" alt="">
+      <div><b>{{ app_name }}</b><div class="ver">consola · v{{ version }}</div></div>
+    </div>
+    {% if ok %}<div class="alert ok">{{ ok }}</div>{% endif %}
+    {% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+    <div class="auth-foot">
+      <span>DNX Caddy Admin</span>
+      <button class="theme-btn" id="theme-btn" type="button" aria-label="Cambiar tema" style="width:auto;padding:4px 8px">
+        <span class="ico" id="theme-ico">🌓</span><span class="lbl" id="theme-lbl">Auto</span>
+      </button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script src="/static/theme-drawer.js"></script>
+</body>
+</html>

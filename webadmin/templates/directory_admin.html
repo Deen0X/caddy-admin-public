@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Directorio admin · {{ app_name }}{% endblock %}
+{% block page_title %}Directorio admin{% endblock %}
+{% block page_sub %}Vista común, extras por usuario y columnas{% endblock %}
+{% block content %}
+
+{% macro action_form(scope, uid, route_id, action, label, cls='ghost') -%}
+<form method="post" action="/directorio-admin/items">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="scope" value="{{ scope }}">
+  <input type="hidden" name="user_id" value="{{ uid }}">
+  <input type="hidden" name="route_id" value="{{ route_id }}">
+  <input type="hidden" name="action" value="{{ action }}">
+  <button class="btn {{ cls }} sm" type="submit">{{ label }}</button>
+</form>
+{%- endmacro %}
+
+{% macro route_row(route, scope, uid, actions) -%}
+<div class="admin-row">
+  <img class="route-favicon" src="/api/favicon/{{ route.id }}?v={{ favicon_version }}" alt="" width="24" height="24"
+       loading="lazy" onerror="this.onerror=null;this.src='/static/logo.png';">
+  <div class="grow">
+    <b>{{ route.name }}</b>
+    <div class="muted small mono">{{ route.id }}{% if route.url %} · {{ route.url|replace('https://', '') }}{% else %} · sin dominio{% endif %}</div>
+  </div>
+  <div class="actions">{{ actions }}</div>
+</div>
+{%- endmacro %}
+
+<div class="tabs">
+  <a href="/directorio-admin?tab=common" class="{% if tab == 'common' %}on{% endif %}">Vista común</a>
+  <a href="/directorio-admin?tab=users" class="{% if tab == 'users' %}on{% endif %}">Usuarios</a>
+  <a href="/directorio-admin?tab=settings" class="{% if tab == 'settings' %}on{% endif %}">Ajustes</a>
+</div>
+
+{% if tab == 'common' %}
+<div class="split">
+  <div class="card">
+    <div class="card-h"><h2>Incluidos en la vista común</h2><div class="grow"></div><span class="badge info">{{ included|length }}</span></div>
+    {% if included %}
+    <div class="admin-list">
+      {% for route in included %}
+      {% set actions %}
+        {{ action_form('common', 0, route.id, 'up', '▲') }}
+        {{ action_form('common', 0, route.id, 'down', '▼') }}
+        {{ action_form('common', 0, route.id, 'remove', 'Quitar', 'danger') }}
+      {% endset %}
+      {{ route_row(route, 'common', 0, actions) }}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="dir-empty">No hay elementos en la vista común.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Disponibles</h2><div class="grow"></div><span class="badge info">{{ available|length }}</span></div>
+    {% if available %}
+    <div class="admin-list">
+      {% for route in available %}
+      {% set actions %}
+        {{ action_form('common', 0, route.id, 'add', 'Añadir') }}
+      {% endset %}
+      {{ route_row(route, 'common', 0, actions) }}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="dir-empty">Todas las rutas están incluidas.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% elif tab == 'users' %}
+<div class="card">
+  <div class="card-h"><h2>Usuario</h2><div class="grow"></div>
+    {% if target_user %}<a class="btn sm" href="/directorio?as_user={{ target_user.id }}">Ver como {{ target_user.username }}</a>{% endif %}
+  </div>
+  <div class="pill-row">
+    {% for u in users if u.role != 'admin' %}
+    <a class="btn ghost sm {% if target_user and u.id == target_user.id %}primary{% endif %}"
+       href="/directorio-admin?tab=users&user_id={{ u.id }}">{{ u.username }}</a>
+    {% endfor %}
+    {% if not users|selectattr('role', 'equalto', 'user')|list %}
+    <span class="muted small">No hay usuarios con rol «usuario». Créalos en la sección Usuarios.</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if target_user %}
+<div class="split" style="margin-top:14px">
+  <div class="card">
+    <div class="card-h"><h2>Extras de {{ target_user.username }}</h2><div class="grow"></div><span class="badge info">{{ included|length }}</span></div>
+    {% if included %}
+    <div class="admin-list">
+      {% for route in included %}
+      {% set actions %}
+        {{ action_form('user', target_id, route.id, 'up', '▲') }}
+        {{ action_form('user', target_id, route.id, 'down', '▼') }}
+        {{ action_form('user', target_id, route.id, 'remove', 'Quitar', 'danger') }}
+      {% endset %}
+      {{ route_row(route, 'user', target_id, actions) }}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="dir-empty">Este usuario no tiene extras. Verá solo la vista común.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Disponibles</h2><div class="grow"></div><span class="badge info">{{ available|length }}</span></div>
+    {% if available %}
+    <div class="admin-list">
+      {% for route in available %}
+      {% set actions %}
+        {{ action_form('user', target_id, route.id, 'add', 'Añadir') }}
+      {% endset %}
+      {{ route_row(route, 'user', target_id, actions) }}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="dir-empty">Todas las rutas están asignadas a este usuario.</div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="card" style="max-width:720px">
+  <div class="card-h"><h2>Ajustes del directorio</h2></div>
+  <form method="post" action="/directorio-admin/settings">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="field" style="max-width:260px">
+      <span>Vista por defecto</span>
+      <select name="view">
+        <option value="list" {% if settings.directory_view == 'list' %}selected{% endif %}>Lista</option>
+        <option value="icons" {% if settings.directory_view == 'icons' %}selected{% endif %}>Iconos</option>
+      </select>
+    </div>
+    <div class="field" style="margin-top:14px">
+      <span>Columnas en la vista de lista</span>
+      <div class="pill-row" style="margin-top:6px">
+        <label class="check-row"><input type="checkbox" name="columns" value="url" {% if 'url' in columns %}checked{% endif %}> URL</label>
+        <label class="check-row"><input type="checkbox" name="columns" value="auth" {% if 'auth' in columns %}checked{% endif %}> Auth</label>
+        <label class="check-row"><input type="checkbox" name="columns" value="status" {% if 'status' in columns %}checked{% endif %}> Estado</label>
+        <label class="check-row"><input type="checkbox" name="columns" value="description" {% if 'description' in columns %}checked{% endif %}> Descripción</label>
+      </div>
+      <div class="hint">El nombre se muestra siempre.</div>
+    </div>
+    <div class="form-actions"><button class="btn" type="submit">Guardar</button></div>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

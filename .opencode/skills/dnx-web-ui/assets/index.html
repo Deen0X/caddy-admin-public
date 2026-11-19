@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>Consola — DNX Web UI</title>
+<link rel="stylesheet" href="dnx-web-ui.css">
+<script>
+/* Anti-FOUC: aplica el tema antes del primer render. */
+(function () {
+  var t = localStorage.getItem('dnx_theme') || 'auto';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <img class="logo" src="logo.png" alt="App">
+      <div><b>MiApp<span class="inst-name">-DESA</span></b><div class="ver">consola</div></div>
+    </div>
+    <nav class="nav">
+      <a href="#/panel" data-v="panel"><span class="ico">◧</span>Panel</a>
+      <a href="#/datos" data-v="datos"><span class="ico">☰</span>Datos</a>
+      <a href="#/config" data-v="config"><span class="ico">⚙</span>Configuración</a>
+    </nav>
+    <div class="foot">
+      <div class="user-card">
+        <div class="avatar">👤</div>
+        <div class="user-meta"><b>admin</b><span>Administrador</span></div>
+      </div>
+      <button class="user-logout" id="logout"><span class="ico">✕</span> Cerrar sesión</button>
+      <button class="theme-btn" id="theme-btn" aria-label="Cambiar tema">
+        <span class="ico" id="theme-ico">🌓</span>
+        <span class="lbl" id="theme-lbl">Auto</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <button class="menu-btn" id="menu-btn" aria-label="Abrir menú">
+        <img class="logo" src="logo.png" alt="App"><span class="hamb">☰</span>
+      </button>
+      <div class="grow">
+        <h1 id="title">Panel</h1>
+        <div class="sub" id="subtitle">Estado general del servicio</div>
+      </div>
+      <span class="badge live-badge" id="live" role="button" tabindex="0"
+        title="Actualizar (clic)" aria-label="Actualizar">
+        <span class="dot ok"></span><span>en vivo</span>
+      </span>
+    </div>
+
+    <div id="view">
+      <div class="grid g4">
+        <div class="card">
+          <div class="card-h"><h2>Servicio</h2></div>
+          <div class="switch">
+            <input type="checkbox" id="svc" checked><label for="svc"></label>
+            <span class="switch-text">Encendido</span>
+          </div>
+        </div>
+        <div class="stat"><div class="k">Elementos</div><div class="v">128</div><div class="s">en total</div></div>
+        <div class="stat"><div class="k">Estado</div><div class="v"><span class="badge ok">activo</span></div><div class="s">sin incidencias</div></div>
+        <div class="stat"><div class="k">Disco</div><div class="v">7.1 GB</div><div class="s">DB 90 MB</div></div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="card-h"><h2>Ejemplo de tabla</h2><div class="grow"></div>
+          <span class="badge info">3</span></div>
+        <div class="table-wrap"><table><thead><tr>
+          <th>id</th><th>nombre</th><th class="col-hide">detalle</th><th>estado</th><th></th>
+        </tr></thead><tbody>
+          <tr><td class="mono">1</td><td>Alpha</td><td class="col-hide muted">demo</td>
+            <td><span class="badge ok">ok</span></td>
+            <td><button class="btn ghost sm icon-btn" title="Editar">✏️</button>
+                <button class="btn danger sm icon-btn" title="Eliminar">🗑️</button></td></tr>
+          <tr><td class="mono">2</td><td>Beta</td><td class="col-hide muted">demo</td>
+            <td><span class="badge warn">pausa</span></td>
+            <td><button class="btn ghost sm icon-btn" title="Editar">✏️</button></td></tr>
+        </tbody></table></div>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="drawer-overlay"></div>
+<div id="toast"></div>
+
+<script src="theme-drawer.js"></script>
+</body>
+</html>

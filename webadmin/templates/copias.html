@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Copias · {{ app_name }}{% endblock %}
+{% block page_title %}Copias{% endblock %}
+{% block page_sub %}Snapshots de rutas y fragmentos generados antes de cada cambio{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="card-h">
+    <h2>Snapshots</h2>
+    <div class="grow"></div>
+    <span class="badge info">{{ snapshots|length }}</span>
+  </div>
+  {% if snapshots %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Fecha</th><th>Ficheros</th><th class="col-hide">Tamaño</th><th></th></tr></thead>
+    <tbody>
+    {% for s in snapshots %}
+    <tr>
+      <td>
+        <span class="mono">{{ s.name[6:8] }}/{{ s.name[4:6] }}/{{ s.name[0:4] }} {{ s.name[9:11] }}:{{ s.name[11:13] }}:{{ s.name[13:15] }}</span>
+      </td>
+      <td>{{ s.files }}</td>
+      <td class="col-hide muted small">
+        {% if s.size >= 1048576 %}{{ (s.size / 1048576)|round(1) }} MB{% else %}{{ (s.size / 1024)|round(1) }} KB{% endif %}
+      </td>
+      <td class="actions">
+        <a class="btn ghost sm" href="/copias/{{ s.name }}/download" title="Descargar ZIP">⬇</a>
+        {% if user.role == 'admin' %}
+        <form method="post" action="/copias/{{ s.name }}/restore"
+              data-confirm="Se restaurarán routes.json y los fragmentos de la copia {{ s.name }}. ¿Continuar?">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="btn danger sm" type="submit" title="Restaurar">↺</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <div class="empty">Todavía no hay copias. Se crean automáticamente antes de aplicar cambios.</div>
+  {% endif %}
+  <div class="hint small-gap">La restauración valida el Caddyfile y recarga Caddy; si falla, se revierte.</div>
+</div>
+{% endblock %}

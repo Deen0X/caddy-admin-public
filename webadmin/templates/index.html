@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Rutas · {{ app_name }}{% endblock %}
+{% block page_title %}Rutas{% endblock %}
+{% block page_sub %}{% if base_domain %}{{ base_domain }} · {% endif %}las rutas fijas del pack no se tocan{% endblock %}
+{% block content %}
+
+{% set total = routes|length %}
+{% set activas = routes|selectattr('enabled')|list|length %}
+{% set con_auth = routes|selectattr('auth','equalto','authelia')|list|length %}
+{% set con_sse = routes|selectattr('sse')|list|length %}
+
+{% if not base_domain %}
+<div class="alert err">
+  No hay dominio base configurado. <a href="/setup-stack">Configúralo aquí</a> para que las rutas se puedan publicar.
+</div>
+{% endif %}
+
+<div class="grid g4">
+  <div class="stat"><div class="k">Rutas</div><div class="v">{{ total }}</div><div class="s">{{ total - activas }} desactivadas</div></div>
+  <div class="stat"><div class="k">Activas</div><div class="v"><span class="badge ok">{{ activas }}</span></div><div class="s">publicadas por Caddy</div></div>
+  <div class="stat"><div class="k">Con Authelia</div><div class="v">{{ con_auth }}</div><div class="s">{{ total - con_auth }} sin auth</div></div>
+  <div class="stat"><div class="k">SSE / streaming</div><div class="v">{{ con_sse }}</div><div class="s">sin buffering</div></div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <div class="card-h">
+    <h2>Rutas gestionadas</h2>
+    <div class="grow"></div>
+    <form class="search" method="get" action="/">
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <input type="hidden" name="order" value="{{ order }}">
+      <input type="search" name="q" value="{{ q }}" placeholder="Buscar nombre, id, destino…">
+      <button class="btn ghost sm" type="submit">Buscar</button>
+      {% if q %}<a class="btn ghost sm" href="/?sort={{ sort }}&order={{ order }}">Limpiar</a>{% endif %}
+      {% if user.role == 'admin' %}<a class="btn sm" href="/new">+ Añadir ruta</a>{% endif %}
+    </form>
+    {% if user.role == 'admin' %}
+    <form method="post" action="/favicons/refresh" style="display:inline"
+          data-confirm="¿Invalidar todos los favicons y volver a descargarlos de cada servicio?">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn ghost sm" type="submit" title="Invalidar caché y recargar favicons">↻ Favicons</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if routes %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+      <tr>
+        <th><a href="?sort=name&order={% if sort == 'name' and order == 'asc' %}desc{% else %}asc{% endif %}&q={{ q|urlencode }}">Nombre{% if sort == 'name' %}<span class="arrow">{% if order == 'asc' %}▲{% else %}▼{% endif %}</span>{% endif %}</a></th>
+        <th class="col-url">Acceso</th>
+        <th class="col-hide">Destino</th>
+        <th class="col-hide"><a href="?sort=auth&order={% if sort == 'auth' and order == 'asc' %}desc{% else %}asc{% endif %}&q={{ q|urlencode }}">Auth{% if sort == 'auth' %}<span class="arrow">{% if order == 'asc' %}▲{% else %}▼{% endif %}</span>{% endif %}</a></th>
+        <th class="col-hide"><a href="?sort=sse&order={% if sort == 'sse' and order == 'asc' %}desc{% else %}asc{% endif %}&q={{ q|urlencode }}">SSE{% if sort == 'sse' %}<span class="arrow">{% if order == 'asc' %}▲{% else %}▼{% endif %}</span>{% endif %}</a></th>
+        <th><a href="?sort=enabled&order={% if sort == 'enabled' and order == 'asc' %}desc{% else %}asc{% endif %}&q={{ q|urlencode }}">Estado{% if sort == 'enabled' %}<span class="arrow">{% if order == 'asc' %}▲{% else %}▼{% endif %}</span>{% endif %}</a></th>
+        <th></th>
+      </tr>
+      </thead>
+      <tbody>
+      {% for route in routes %}
+      {% set mode = route.get('mode', 'port') %}
+      {% set route_url = public_urls.get(route.id, '') if route.get('enabled') else '' %}
+      {% set next_url = '/?sort=' ~ sort ~ '&order=' ~ order %}
+      {% if q %}{% set next_url = next_url ~ '&q=' ~ (q|urlencode) %}{% endif %}
+      <tr>
+        <td>
+          {% if route_url %}
+          <a class="route-name route-link" href="{{ route_url }}" target="_blank" rel="noopener noreferrer" title="Abrir {{ route.name }}">
+          {% else %}
+          <div class="route-name">
+          {% endif %}
+            <img class="route-favicon" src="/api/favicon/{{ route.id }}?v={{ favicon_version }}" alt="" width="20" height="20"
+                 onerror="this.onerror=null;this.src='/static/logo.png';">
+            <div>
+              <b>{{ route.name }}</b><br>
+              <span class="muted small mono">{{ route.id }}</span>
+              {% if route_url %}<div class="muted small mobile-url">{{ route_url|replace('https://', '') }}</div>{% endif %}
+            </div>
+          {% if route_url %}</a>{% else %}</div>{% endif %}
+        </td>
+        <td class="col-url">
+          {% if not base_domain %}
+            <span class="badge warn">sin dominio</span>
+          {% elif route_url %}
+            <a class="code" href="{{ route_url }}" target="_blank" rel="noopener noreferrer">{{ route_url|replace('https://', '') }}</a>
+          {% else %}
+            <span class="badge warn">sin dominio</span>
+          {% endif %}
+          <div class="muted small" style="margin-top:3px">
+            {% if mode == 'port' %}puerto{% elif mode == 'subdomain' %}subdominio{% else %}path{% endif %}
+          </div>
+        </td>
+        <td class="col-hide">
+          <a class="mono" href="{{ 'https' if route.get('scheme', 'http') == 'https' else 'http' }}://{{ route.target }}"
+             target="_blank" rel="noopener noreferrer" title="Abrir destino local">{{ route.target }}</a>
+        </td>
+        <td class="col-hide">
+          <form method="post" action="/{{ route.id }}/toggle-auth" class="inline-form">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="next" value="{{ next_url }}">
+            {% if route.auth == 'authelia' %}
+              {% if sso.sso %}
+                <button class="badge info clickable" type="submit" title="Quitar Authelia">Authelia</button>
+              {% else %}
+                <button class="badge warn clickable" type="submit" title="Quitar Authelia (SSO no disponible)">SSO no disponible</button>
+              {% endif %}
+            {% else %}
+              <button class="badge warn clickable" type="submit" title="Activar Authelia" {% if not sso.sso %}disabled{% endif %}>Sin auth</button>
+            {% endif %}
+          </form>
+        </td>
+        <td class="col-hide">
+          <form method="post" action="/{{ route.id }}/toggle-sse" class="inline-form">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="next" value="{{ next_url }}">
+            {% if route.sse %}
+            <button class="badge ok clickable" type="submit" title="Desactivar SSE">Sí</button>
+            {% else %}
+            <button class="badge clickable" type="submit" title="Activar SSE">No</button>
+            {% endif %}
+          </form>
+        </td>
+        <td>{% if route.enabled %}<span class="badge ok">Activa</span>{% else %}<span class="badge err">Off</span>{% endif %}</td>
+        <td class="actions">
+          {% if user.role == 'admin' %}
+          <a class="btn ghost sm" href="/{{ route.id }}/edit" title="Editar">✏️</a>
+          <form method="post" action="/{{ route.id }}/delete" data-confirm="¿Eliminar la ruta {{ route.name }}?">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <button class="btn danger sm" type="submit" title="Eliminar">🗑️</button>
+          </form>
+          {% else %}
+          <span class="muted small">solo lectura</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    {% if q %}No hay rutas que coincidan con «{{ q }}».{% else %}No hay rutas gestionadas.{% if user.role == 'admin' %} Pulsa «Añadir ruta» para crear la primera.{% endif %}{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="alert info" style="margin-top:14px">
+  <b>Puerto</b>: URL dominio:81xx (no requiere tocar la app). ·
+  <b>Subdominio</b>: app.dominio en 443 (requiere DNS wildcard). ·
+  <b>Path</b>: dominio/app (la app debe soportar base path).
+</div>
+{% endblock %}

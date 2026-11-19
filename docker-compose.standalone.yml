@@ -1,0 +1,75 @@
+# DNX Caddy Admin — despliegue standalone (Caddy + consola).
+# Instalación: ./install.sh  (Linux)  o  .\install.ps1  (Windows)
+# El dominio se configura después desde la consola (/setup-stack).
+
+name: dnx-caddy
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: dnx-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+      - "9095:9095"
+      # Rutas en modo puerto (deben coincidir con CADDY_ROUTE_PORT_MIN/MAX)
+      - "8100-8199:8100-8199"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ./caddy/routes:/etc/caddy/routes
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - dnx-net
+
+  caddy-admin:
+    build:
+      context: ./webadmin
+      args:
+        DNX_COMMIT: ${DNX_COMMIT:-}
+    image: dnxdservice/caddy-admin:1.0.0
+    container_name: dnx-caddy-admin
+    restart: unless-stopped
+    user: "${DNX_UID:-1000}:${DNX_GID:-1000}"
+    environment:
+      CADDY_CONFIG: /caddy/Caddyfile
+      CADDY_ROUTES_JSON: /caddy/routes.json
+      CADDY_ROUTES_DIR: /caddy/routes
+      CADDY_BACKUPS_DIR: /caddy/backups
+      CADDY_ADMIN: caddy:2019
+      CADDY_BASE_DOMAIN: ${BASE_DOMAIN:-}
+      CADDY_LAN_IP: ${LAN_IP:-}
+      CADDY_MANAGED_CADDYFILE: "1"
+      CADDY_ADMIN_DB: /data/admin.db
+      CADDY_METRICS_URL: http://caddy:2019/metrics
+      CADDY_HOST: ${BASE_DOMAIN:-localhost}
+      XDG_DATA_HOME: /tmp/caddy-data
+      XDG_CONFIG_HOME: /tmp/caddy-config
+      HOME: /tmp
+    volumes:
+      - ./caddy:/caddy
+      - caddy_admin_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:-986}"
+    depends_on:
+      - caddy
+    networks:
+      - dnx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9095/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  caddy_data:
+  caddy_config:
+  caddy_admin_data:
+
+networks:
+  dnx-net:
+    driver: bridge

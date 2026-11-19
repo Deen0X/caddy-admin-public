@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Estadísticas · {{ app_name }}{% endblock %}
+{% block page_title %}Estadísticas{% endblock %}
+{% block page_sub %}Tráfico de Caddy, rutas y disco · <span id="stats-updated">en vivo</span>{% endblock %}
+{% block content %}
+<div id="stats-live">
+
+{% set pct = ((live.routes_enabled / live.routes_total * 100)|round|int) if live.routes_total else 0 %}
+{% set ns = namespace(max=1) %}
+{% for s in samples %}{% set t = (s.requests or 0) + (s.admin_requests or 0) %}{% if t > ns.max %}{% set ns.max = t %}{% endif %}{% endfor %}
+
+<div class="grid g4">
+  <div class="stat">
+    <div class="k">Peticiones HTTP</div>
+    <div class="v" id="m-requests">{{ live.metrics.requests }}</div>
+    <div class="s">{% if live.metrics.http_metrics %}por Caddy{% else %}métricas HTTP no activadas{% endif %}</div>
+  </div>
+  <div class="stat">
+    <div class="k">Admin API</div>
+    <div class="v" id="m-admin">{{ live.metrics.admin_requests }}</div>
+    <div class="s">recargas y consultas</div>
+  </div>
+  <div class="stat">
+    <div class="k">Errores</div>
+    <div class="v" id="m-errors">{{ live.metrics.errors }}</div>
+    <div class="s">respuestas de error</div>
+  </div>
+  <div class="stat">
+    <div class="k">Rutas</div>
+    <div class="v" id="m-routes">{{ live.routes_total }} ({{ live.routes_enabled }} activas)</div>
+    <div class="s">{{ live.routes_authelia }} con Authelia</div>
+  </div>
+</div>
+
+<div class="split" style="margin-top:14px">
+  <div class="card">
+    <div class="card-h"><h2>Rutas activas</h2><div class="grow"></div><span class="badge info">{{ live.routes_total }}</span></div>
+    <div class="donut-wrap">
+      <div class="donut" id="donut" style="--pct: {{ pct }}">
+        <div class="center" id="donut-center">{{ pct }}%</div>
+      </div>
+      <div class="legend">
+        <div><i style="background: var(--ok)"></i>{{ live.routes_enabled }} activas</div>
+        <div><i style="background: var(--line)"></i>{{ live.routes_total - live.routes_enabled }} desactivadas</div>
+        <div class="muted small">{{ live.routes_none }} sin Authelia</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Sistema</h2></div>
+    <dl class="kv">
+      <dt>Disco libre</dt><dd><span id="m-disk">{{ (live.disk.free / 1073741824)|round(1) }} GB libres</span> <span class="muted small" id="m-disk-sub">de {{ (live.disk.total / 1073741824)|round(1) }} GB</span></dd>
+      <dt>Uptime</dt><dd>{{ (live.uptime_seconds // 3600) }} h {{ ((live.uptime_seconds % 3600) // 60) }} min</dd>
+      <dt>Usuarios</dt><dd>{{ users_count }}</dd>
+      <dt>Métricas</dt><dd>{% if live.metrics.available %}<span class="badge ok">disponibles</span>{% else %}<span class="badge err">no</span>{% endif %}</dd>
+    </dl>
+    {% if not live.metrics.available %}
+    <div class="hint small-gap">Caddy no expone métricas: {{ live.metrics.error }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <div class="card-h"><h2>Histórico de peticiones</h2><div class="grow"></div>
+    <span class="badge info">máx. <span id="stats-max">{{ ns.max }}</span></span>
+  </div>
+  <div class="bars" id="stats-bars">
+    {% for s in samples %}
+      {% set t = (s.requests or 0) + (s.admin_requests or 0) %}
+      <div class="col" title="{{ t }} peticiones · {{ s.ts }}"><i style="height: {{ ((t / ns.max * 100)|round|int) if ns.max else 0 }}%"></i></div>
+    {% endfor %}
+    {% if not samples %}<div class="empty">Sin muestras todavía. Se guardan cada {{ settings.stats_interval }} s.</div>{% endif %}
+  </div>
+  <div class="bars-axis"><span>más antiguo</span><span>ahora</span></div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <div class="card-h"><h2>Últimas muestras</h2><div class="grow"></div><span class="badge info">{{ samples|length }}</span></div>
+  {% if samples %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Fecha</th><th>HTTP</th><th>Admin</th><th>Errores</th><th class="col-hide">Rutas</th><th class="col-hide">Disco libre</th></tr></thead>
+    <tbody>
+    {% for s in samples|reverse %}
+    <tr>
+      <td class="mono small">{{ s.ts[:19]|replace('T',' ') }}</td>
+      <td>{{ s.requests }}</td>
+      <td>{{ s.admin_requests }}</td>
+      <td>{% if s.errors %}<span class="badge err">{{ s.errors }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
+      <td class="col-hide">{{ s.routes_enabled }}/{{ s.routes_total }}</td>
+      <td class="col-hide muted small">{{ (s.disk_free / 1073741824)|round(1) }} GB</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<div class="empty">Sin muestras todavía.</div>{% endif %}
+</div>
+
+</div>
+{% endblock %}
